@@ -8,8 +8,9 @@ const root = __dirname;
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 
 http.createServer((req, res) => {
-  let file = req.url === '/' ? '/index.html' : req.url;
-  const filePath = path.join(root, decodeURIComponent(file.split('?')[0]));
+  let file = req.url.split('?')[0];
+  if (file === '/') file = '/index.html';
+  const filePath = path.join(root, decodeURIComponent(file));
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     const ext = path.extname(filePath);

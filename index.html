@@ -179,6 +179,46 @@
   .btn-accent:hover:not(:disabled) { opacity: .9; }
   .btn-ghost { background: transparent; color: var(--ink); border-color: var(--rule-strong); }
   .btn-ghost:hover:not(:disabled) { background: var(--paper-2); }
+  .btn-danger { background: var(--danger); color: #fff9f6; }
+  .btn-danger:hover:not(:disabled) { opacity: .9; }
+
+  /* Quick-add form */
+  .add-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px;
+  }
+  .add-form .field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .add-form label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-weight: 600;
+    color: var(--ink-dim);
+  }
+  .add-form input {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 14px;
+    border: 1px solid var(--rule-strong);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--paper-2);
+    color: var(--ink);
+    width: 92px;
+    text-align: right;
+  }
+  .add-form .field.serial input { width: 66px; }
+  .add-form input:hover { border-color: var(--rule-strong); }
+  .add-form input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--card);
+  }
 
   /* Summary strip */
   .summary-grid {
@@ -310,6 +350,11 @@
     margin-left: 6px;
   }
 
+  th.check, td.check { width: 36px; text-align: center; padding-left: 16px; padding-right: 4px; }
+  input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; vertical-align: middle; }
+  tbody tr.row-selected { background: var(--accent-soft); }
+  tbody tr.row-selected.row-a { background: color-mix(in srgb, var(--accent-soft) 55%, var(--gold-soft)); }
+
   .src-tag {
     font-family: "Public Sans", sans-serif;
     font-size: 10.5px;
@@ -344,7 +389,7 @@
   @media print {
     body { background: #fff; color: #000; }
     header.top, .table-toolbar .btn, footer.actions .btn-ghost, td.num input { display: revert; }
-    footer.actions button { display: none !important; }
+    footer.actions button, #addSection, th.check, td.check { display: none !important; }
     .panel { box-shadow: none; border: none; }
     tbody tr.row-a { background: #f1e2c0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
@@ -395,6 +440,32 @@
     </div>
   </section>
 
+  <section id="addSection">
+    <div class="panel">
+      <h2>Add a measurement</h2>
+      <p class="panel-sub">Enter length and width, then press Enter — it drops straight into the ledger below and the fields reset for the next log.</p>
+      <form id="addForm" class="add-form" autocomplete="off">
+        <div class="field serial">
+          <label for="addSerial">S.No</label>
+          <input type="number" id="addSerial" min="1" step="1">
+        </div>
+        <div class="field">
+          <label for="addLength">Length (ft)</label>
+          <input type="number" id="addLength" min="0" step="1" placeholder="7">
+        </div>
+        <div class="field">
+          <label for="addWidthFt">Width (ft&prime;)</label>
+          <input type="number" id="addWidthFt" min="0" step="1" placeholder="1">
+        </div>
+        <div class="field">
+          <label for="addWidthIn">Width (in&Prime;)</label>
+          <input type="number" id="addWidthIn" min="0" max="11" step="1" placeholder="0">
+        </div>
+        <button type="submit" class="btn btn-accent">Add to ledger</button>
+      </form>
+    </div>
+  </section>
+
   <section>
     <div class="panel">
       <div class="table-toolbar">
@@ -402,12 +473,13 @@
           <h2 style="margin-bottom:0">Measurement ledger</h2>
           <p class="panel-sub" style="margin-bottom:0">Click any number to correct a misread. Section is worked out from CFT automatically — override it per row from the dropdown if a log needs to be piled the other way.</p>
         </div>
-        <button class="btn btn-ghost" id="addRowBtn" type="button">+ Add row</button>
+        <button class="btn btn-ghost" id="deleteSelectedBtn" type="button" disabled>Delete selected</button>
       </div>
       <div class="table-scroll">
         <table>
           <thead>
             <tr>
+              <th class="check"><input type="checkbox" id="selectAllCheckbox" title="Select all rows"></th>
               <th>S.No</th>
               <th>Length (ft)</th>
               <th>Width (ft&prime;.in&Prime;)</th>
@@ -494,7 +566,6 @@
 
   var el = {
     tbody: document.getElementById("tbody"),
-    addRowBtn: document.getElementById("addRowBtn"),
     statACount: document.getElementById("statACount"),
     statACft: document.getElementById("statACft"),
     statBCount: document.getElementById("statBCount"),
@@ -504,7 +575,20 @@
     printBtn: document.getElementById("printBtn"),
     downloadBtn: document.getElementById("downloadBtn"),
     footNote: document.getElementById("footNote"),
+    addForm: document.getElementById("addForm"),
+    addSerial: document.getElementById("addSerial"),
+    addLength: document.getElementById("addLength"),
+    addWidthFt: document.getElementById("addWidthFt"),
+    addWidthIn: document.getElementById("addWidthIn"),
+    selectAllCheckbox: document.getElementById("selectAllCheckbox"),
+    deleteSelectedBtn: document.getElementById("deleteSelectedBtn"),
   };
+
+  var selectedIds = {};
+
+  function nextSerial() {
+    return rows.reduce(function (m, r) { return Math.max(m, r.serial); }, 0) + 1;
+  }
 
   function widthInches(r) { return r.widthFt * 12 + r.widthIn; }
   function cft(r) {
@@ -523,7 +607,7 @@
     if (sorted.length === 0) {
       var tr = document.createElement("tr");
       tr.className = "empty-row";
-      tr.innerHTML = '<td colspan="8">No rows yet — add one to get started.</td>';
+      tr.innerHTML = '<td colspan="9">No rows yet — add one above to get started.</td>';
       el.tbody.appendChild(tr);
     }
 
@@ -535,7 +619,23 @@
       if (sec === "A") { totalA += c; countA++; } else { totalB += c; countB++; }
 
       var tr = document.createElement("tr");
-      tr.className = sec === "A" ? "row-a" : "";
+      var classes = [];
+      if (sec === "A") classes.push("row-a");
+      if (selectedIds[r.id]) classes.push("row-selected");
+      tr.className = classes.join(" ");
+
+      var checkTd = document.createElement("td");
+      checkTd.className = "check";
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = !!selectedIds[r.id];
+      checkbox.addEventListener("change", function () {
+        if (checkbox.checked) selectedIds[r.id] = true; else delete selectedIds[r.id];
+        tr.classList.toggle("row-selected", checkbox.checked);
+        updateSelectionUI(sorted);
+      });
+      checkTd.appendChild(checkbox);
+      tr.appendChild(checkTd);
 
       tr.appendChild(numCell(r, "serial", 0, 44));
       tr.appendChild(numCell(r, "lengthFt", 0, 40));
@@ -594,8 +694,10 @@
       delBtn.textContent = "×";
       delBtn.addEventListener("click", function () {
         rows = rows.filter(function (x) { return x.id !== r.id; });
+        delete selectedIds[r.id];
         persist();
         render();
+        el.addSerial.value = nextSerial();
       });
       delTd.appendChild(delBtn);
       tr.appendChild(delTd);
@@ -604,6 +706,33 @@
     });
 
     updateStats();
+    updateSelectionUI(sorted);
+  }
+
+  function updateSelectionUI(visibleRows) {
+    var ids = visibleRows.map(function (r) { return r.id; });
+    // drop selections for rows that no longer exist
+    Object.keys(selectedIds).forEach(function (id) {
+      if (ids.indexOf(id) === -1) delete selectedIds[id];
+    });
+    var selectedCount = Object.keys(selectedIds).length;
+
+    el.deleteSelectedBtn.disabled = selectedCount === 0;
+    el.deleteSelectedBtn.textContent = selectedCount > 0 ? "Delete selected (" + selectedCount + ")" : "Delete selected";
+
+    if (ids.length === 0) {
+      el.selectAllCheckbox.checked = false;
+      el.selectAllCheckbox.indeterminate = false;
+    } else if (selectedCount === 0) {
+      el.selectAllCheckbox.checked = false;
+      el.selectAllCheckbox.indeterminate = false;
+    } else if (selectedCount === ids.length) {
+      el.selectAllCheckbox.checked = true;
+      el.selectAllCheckbox.indeterminate = false;
+    } else {
+      el.selectAllCheckbox.checked = false;
+      el.selectAllCheckbox.indeterminate = true;
+    }
   }
 
   function labelForSource(s) {
@@ -651,11 +780,61 @@
     el.statTotalCount.textContent = (countA + countB) + " logs scaled";
   }
 
-  el.addRowBtn.addEventListener("click", function () {
-    var maxSerial = rows.reduce(function (m, r) { return Math.max(m, r.serial); }, 0);
-    rows.push({ id: nextUid(), serial: maxSerial + 1, lengthFt: 6, widthFt: 1, widthIn: 0, manualSection: null, source: "manual" });
+  // ---------------- Quick-add form ----------------
+
+  el.addForm.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.keyCode === 13) {
+      e.preventDefault();
+      if (el.addForm.requestSubmit) el.addForm.requestSubmit();
+      else el.addForm.dispatchEvent(new Event("submit", { cancelable: true }));
+    }
+  });
+
+  el.addForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var serial = parseInt(el.addSerial.value, 10);
+    var lengthFt = parseFloat(el.addLength.value);
+    var widthFt = parseFloat(el.addWidthFt.value);
+    var widthIn = parseFloat(el.addWidthIn.value);
+
+    if (isNaN(serial)) serial = nextSerial();
+    if (isNaN(lengthFt)) { el.addLength.focus(); return; }
+    if (isNaN(widthFt)) widthFt = 0;
+    if (isNaN(widthIn)) widthIn = 0;
+
+    rows.push({ id: nextUid(), serial: serial, lengthFt: lengthFt, widthFt: widthFt, widthIn: widthIn, manualSection: null, source: "manual" });
     persist();
     render();
+    resetAddForm();
+    el.addLength.focus();
+  });
+
+  function resetAddForm() {
+    el.addSerial.value = nextSerial();
+    el.addLength.value = "";
+    el.addWidthFt.value = "";
+    el.addWidthIn.value = "";
+  }
+  resetAddForm();
+
+  // ---------------- Bulk selection ----------------
+
+  el.selectAllCheckbox.addEventListener("change", function () {
+    var sorted = rows.slice().sort(function (a, b) { return a.serial - b.serial || a.id.localeCompare(b.id); });
+    if (el.selectAllCheckbox.checked) {
+      sorted.forEach(function (r) { selectedIds[r.id] = true; });
+    } else {
+      selectedIds = {};
+    }
+    render();
+  });
+
+  el.deleteSelectedBtn.addEventListener("click", function () {
+    rows = rows.filter(function (r) { return !selectedIds[r.id]; });
+    selectedIds = {};
+    persist();
+    render();
+    el.addSerial.value = nextSerial();
   });
 
   // ---------------- PDF export ----------------
