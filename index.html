@@ -665,8 +665,8 @@
         var resolved = resolvedSection(r);
         markA.classList.toggle("active", resolved === "A");
         markB.classList.toggle("active", resolved === "B");
-        markA.textContent = resolved === "A" ? fmt(cft(r)) : "–";
-        markB.textContent = resolved === "B" ? fmt(cft(r)) : "–";
+        markA.textContent = resolved === "A" ? "A" : "–";
+        markB.textContent = resolved === "B" ? "B" : "–";
       }
       function refreshRow() {
         widthInTd.textContent = widthInches(r) + '"';
