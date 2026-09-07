@@ -619,10 +619,18 @@
       if (sec === "A") { totalA += c; countA++; } else { totalB += c; countB++; }
 
       var tr = document.createElement("tr");
-      var classes = [];
-      if (sec === "A") classes.push("row-a");
-      if (selectedIds[r.id]) classes.push("row-selected");
-      tr.className = classes.join(" ");
+      tr.classList.toggle("row-a", sec === "A");
+      tr.classList.toggle("row-selected", !!selectedIds[r.id]);
+
+      var widthInTd, cftTd, secSelect;
+      function refreshRow() {
+        var w = widthInches(r);
+        widthInTd.textContent = w + '"';
+        cftTd.textContent = fmt(cft(r));
+        var autoOpt = secSelect.querySelector('option[value="auto"]');
+        if (autoOpt) autoOpt.textContent = "Auto (" + autoSection(r) + ")";
+        tr.classList.toggle("row-a", resolvedSection(r) === "A");
+      }
 
       var checkTd = document.createElement("td");
       checkTd.className = "check";
@@ -638,12 +646,12 @@
       tr.appendChild(checkTd);
 
       tr.appendChild(numCell(r, "serial", 0, 44));
-      tr.appendChild(numCell(r, "lengthFt", 0, 40));
+      tr.appendChild(numCell(r, "lengthFt", 0, 40, refreshRow));
 
       var widthTd = document.createElement("td");
       widthTd.className = "num";
-      var wf = mkInput(r, "widthFt", 0, 32);
-      var wi = mkInput(r, "widthIn", 0, 32);
+      var wf = mkInput(r, "widthFt", 0, 32, refreshRow);
+      var wi = mkInput(r, "widthIn", 0, 32, refreshRow);
       widthTd.appendChild(wf);
       var sep = document.createElement("span");
       sep.className = "sep";
@@ -656,30 +664,30 @@
       widthTd.appendChild(dq);
       tr.appendChild(widthTd);
 
-      var widthInTd = document.createElement("td");
+      widthInTd = document.createElement("td");
       widthInTd.textContent = widthInches(r) + '"';
       tr.appendChild(widthInTd);
 
-      var cftTd = document.createElement("td");
+      cftTd = document.createElement("td");
       cftTd.textContent = fmt(c);
       tr.appendChild(cftTd);
 
       var secTd = document.createElement("td");
-      var select = document.createElement("select");
-      select.className = "sec-select";
+      secSelect = document.createElement("select");
+      secSelect.className = "sec-select";
       [["auto", "Auto (" + autoSection(r) + ")"], ["A", "A"], ["B", "B"]].forEach(function (opt) {
         var o = document.createElement("option");
         o.value = opt[0];
         o.textContent = opt[1];
-        select.appendChild(o);
+        secSelect.appendChild(o);
       });
-      select.value = r.manualSection || "auto";
-      select.addEventListener("change", function () {
-        r.manualSection = select.value === "auto" ? null : select.value;
+      secSelect.value = r.manualSection || "auto";
+      secSelect.addEventListener("change", function () {
+        r.manualSection = secSelect.value === "auto" ? null : secSelect.value;
         persist();
         render();
       });
-      secTd.appendChild(select);
+      secTd.appendChild(secSelect);
       tr.appendChild(secTd);
 
       var srcTd = document.createElement("td");
@@ -739,7 +747,7 @@
     return s === "seed" ? "notebook pgs 1–4" : "manual";
   }
 
-  function mkInput(r, field, decimals, width) {
+  function mkInput(r, field, decimals, width, onLive) {
     var input = document.createElement("input");
     input.type = "number";
     input.step = decimals ? "0.1" : "1";
@@ -750,6 +758,7 @@
       var v = parseFloat(input.value);
       r[field] = isNaN(v) ? 0 : v;
       updateStats();
+      if (onLive) onLive();
     });
     input.addEventListener("change", function () {
       persist();
@@ -758,10 +767,10 @@
     return input;
   }
 
-  function numCell(r, field, decimals, width) {
+  function numCell(r, field, decimals, width, onLive) {
     var td = document.createElement("td");
     td.className = "num";
-    td.appendChild(mkInput(r, field, decimals, width));
+    td.appendChild(mkInput(r, field, decimals, width, onLive));
     return td;
   }
 
