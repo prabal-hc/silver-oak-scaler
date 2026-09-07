@@ -562,9 +562,9 @@
   function loadRows() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
+      if (raw === null) return null; // nothing saved yet — use the seed data
       var parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed) || !parsed.length) return null;
+      if (!Array.isArray(parsed)) return null;
       return parsed.map(function (r) {
         return {
           id: nextUid(),
