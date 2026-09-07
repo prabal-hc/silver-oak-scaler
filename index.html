@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silver Oak Scaler</title>
+<meta name="description" content="Digitize timber log-book measurements, compute cubic-feet volume, sort logs into A/B sections, and export a PDF report.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+<style>
+  :root {
+    --paper: #eef0e6;
+    --paper-2: #e2e6d6;
+    --card: #f7f8f1;
+    --ink: #202b1f;
+    --ink-dim: #5a6552;
+    --ink-faint: #8a9480;
+    --rule: #c9d0b8;
+    --rule-strong: #a9b494;
+    --accent: #2f6e3f;
+    --accent-ink: #f7f8f1;
+    --accent-soft: rgba(47, 110, 63, 0.1);
+    --gold: #b9812f;
+    --gold-soft: rgba(185, 129, 47, 0.14);
+    --gold-ink: #7a5620;
+    --danger: #a13d2d;
+    --danger-soft: rgba(161, 61, 45, 0.1);
+    --shadow: 0 1px 2px rgba(32, 43, 31, 0.06), 0 8px 24px -12px rgba(32, 43, 31, 0.18);
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141a13;
+      --paper-2: #1b221a;
+      --card: #1c231b;
+      --ink: #e7ecdf;
+      --ink-dim: #a3af97;
+      --ink-faint: #6c7863;
+      --rule: #333d2f;
+      --rule-strong: #445040;
+      --accent: #74c07f;
+      --accent-ink: #0f1a10;
+      --accent-soft: rgba(116, 192, 127, 0.14);
+      --gold: #e0ac57;
+      --gold-soft: rgba(224, 172, 87, 0.14);
+      --gold-ink: #f3dcaa;
+      --danger: #e2836e;
+      --danger-soft: rgba(226, 131, 110, 0.14);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px -14px rgba(0, 0, 0, 0.6);
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #141a13;
+    --paper-2: #1b221a;
+    --card: #1c231b;
+    --ink: #e7ecdf;
+    --ink-dim: #a3af97;
+    --ink-faint: #6c7863;
+    --rule: #333d2f;
+    --rule-strong: #445040;
+    --accent: #74c07f;
+    --accent-ink: #0f1a10;
+    --accent-soft: rgba(116, 192, 127, 0.14);
+    --gold: #e0ac57;
+    --gold-soft: rgba(224, 172, 87, 0.14);
+    --gold-ink: #f3dcaa;
+    --danger: #e2836e;
+    --danger-soft: rgba(226, 131, 110, 0.14);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px -14px rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  header.top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+    border-bottom: 2px solid var(--rule-strong);
+  }
+
+  .brand-mark {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .brand-mark svg { flex: none; }
+
+  h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: 32px;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .tagline {
+    font-size: 13px;
+    color: var(--ink-dim);
+    margin-top: 2px;
+  }
+
+  .formula-chip {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+  .formula-chip b { color: var(--ink); font-weight: 600; }
+
+  section { margin-bottom: 32px; }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 22px 24px;
+  }
+
+  h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: 18px;
+    margin: 0 0 4px;
+  }
+  .panel-sub {
+    font-size: 13px;
+    color: var(--ink-dim);
+    margin: 0 0 16px;
+  }
+
+  .btn {
+    font: inherit;
+    font-weight: 600;
+    font-size: 13.5px;
+    border-radius: 9px;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: transform .08s ease, opacity .15s ease, background .15s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-accent { background: var(--accent); color: var(--accent-ink); }
+  .btn-accent:hover:not(:disabled) { opacity: .9; }
+  .btn-ghost { background: transparent; color: var(--ink); border-color: var(--rule-strong); }
+  .btn-ghost:hover:not(:disabled) { background: var(--paper-2); }
+
+  /* Summary strip */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+  }
+  .stat {
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 16px 18px;
+    background: var(--paper-2);
+  }
+  .stat .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--ink-dim);
+    font-weight: 600;
+  }
+  .stat .value {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 26px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    margin-top: 4px;
+    letter-spacing: -0.01em;
+  }
+  .stat .sub {
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat.section-a { background: var(--gold-soft); border-color: color-mix(in srgb, var(--gold) 40%, var(--rule)); }
+  .stat.section-a .value { color: var(--gold-ink); }
+  .stat.section-b { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, var(--rule)); }
+  .stat.section-b .value { color: var(--accent); }
+  .stat.total .value { color: var(--ink); }
+
+  /* Table */
+  .table-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    min-width: 780px;
+  }
+  thead th {
+    text-align: left;
+    font-family: "Public Sans", sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-weight: 600;
+    color: var(--ink-dim);
+    background: var(--paper-2);
+    padding: 10px 12px;
+    border-bottom: 1.5px solid var(--rule-strong);
+    position: sticky; top: 0;
+  }
+  tbody td {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--paper-2); }
+  tbody tr.row-a { background: var(--gold-soft); }
+  tbody tr.row-a:hover { background: color-mix(in srgb, var(--gold-soft) 70%, var(--paper-2)); }
+
+  td.num input {
+    width: 52px;
+    font: inherit;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 4px 5px;
+    color: var(--ink);
+    text-align: right;
+  }
+  td.num input:hover { border-color: var(--rule); }
+  td.num input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--card);
+  }
+  .sep { color: var(--ink-faint); padding: 0 2px; }
+
+  .badge {
+    font-family: "Public Sans", sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    padding: 2px 8px;
+    border-radius: 100px;
+    display: inline-block;
+  }
+  .badge-a { background: var(--gold); color: #2b1c04; }
+  .badge-b { background: var(--rule); color: var(--ink-dim); }
+
+  .sec-select {
+    font-family: "Public Sans", sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 7px;
+    border: 1px solid var(--rule-strong);
+    background: var(--card);
+    color: var(--ink);
+    padding: 4px 6px;
+    cursor: pointer;
+  }
+  .sec-select:focus { outline: none; border-color: var(--accent); }
+  .sec-override-tag {
+    font-size: 10px;
+    color: var(--ink-faint);
+    margin-left: 6px;
+  }
+
+  .src-tag {
+    font-family: "Public Sans", sans-serif;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+  }
+
+  .del-btn {
+    background: none; border: none; cursor: pointer; color: var(--ink-faint);
+    font-size: 15px; line-height: 1; padding: 2px 4px; border-radius: 5px;
+  }
+  .del-btn:hover { color: var(--danger); background: var(--danger-soft); }
+
+  .empty-row td {
+    text-align: center;
+    color: var(--ink-faint);
+    padding: 28px;
+    font-family: "Public Sans", sans-serif;
+  }
+
+  footer.actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+  }
+  .meta-note { font-size: 12px; color: var(--ink-faint); }
+
+  @media print {
+    body { background: #fff; color: #000; }
+    header.top, .table-toolbar .btn, footer.actions .btn-ghost, td.num input { display: revert; }
+    footer.actions button { display: none !important; }
+    .panel { box-shadow: none; border: none; }
+    tbody tr.row-a { background: #f1e2c0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 26px; }
+    .formula-chip { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand-mark">
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="17" cy="17" r="16" stroke="var(--accent)" stroke-width="1.5"/>
+        <path d="M17 24V13" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M17 13c0-3.5-2.8-5.4-6.2-5.2 0 3.6 2.6 5.6 6.2 5.2Z" fill="var(--accent)" opacity="0.85"/>
+        <path d="M17 15.5c0-3.2 2.6-5 5.8-4.8 0 3.4-2.4 5.2-5.8 4.8Z" fill="var(--accent)" opacity="0.6"/>
+        <path d="M13.5 24h7" stroke="var(--gold)" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <h1>Silver Oak Scaler</h1>
+        <div class="tagline">Timber log book &rarr; cubic-feet volume, sectioned A / B</div>
+      </div>
+    </div>
+    <div class="formula-chip">CFT = L(ft) &times; W(in) &times; W(in) &divide; <b>2304</b> &nbsp;·&nbsp; A &ge; 2.00 &nbsp;·&nbsp; B &lt; 2.00</div>
+  </header>
+
+  <section>
+    <div class="summary-grid">
+      <div class="stat section-a">
+        <div class="label">Section A &middot; CFT &ge; 2.00</div>
+        <div class="value" id="statACount">0</div>
+        <div class="sub" id="statACft">0.000 cft</div>
+      </div>
+      <div class="stat section-b">
+        <div class="label">Section B &middot; CFT &lt; 2.00</div>
+        <div class="value" id="statBCount">0</div>
+        <div class="sub" id="statBCft">0.000 cft</div>
+      </div>
+      <div class="stat total">
+        <div class="label">Grand total volume</div>
+        <div class="value" id="statTotalCft">0.000</div>
+        <div class="sub" id="statTotalCount">0 logs scaled</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="panel">
+      <div class="table-toolbar">
+        <div>
+          <h2 style="margin-bottom:0">Measurement ledger</h2>
+          <p class="panel-sub" style="margin-bottom:0">Click any number to correct a misread. Section is worked out from CFT automatically — override it per row from the dropdown if a log needs to be piled the other way.</p>
+        </div>
+        <button class="btn btn-ghost" id="addRowBtn" type="button">+ Add row</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>S.No</th>
+              <th>Length (ft)</th>
+              <th>Width (ft&prime;.in&Prime;)</th>
+              <th>Width (in)</th>
+              <th>CFT</th>
+              <th>Section</th>
+              <th>Source</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="actions">
+    <span class="meta-note" id="footNote">Loaded: your notebook pages 1&ndash;4 (78 rows). Edits stay in this browser until you download.</span>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-ghost" id="printBtn" type="button">Print / Save as PDF</button>
+      <button class="btn btn-accent" id="downloadBtn" type="button">Download PDF report</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- seed data: extracted from the notebook photos already provided ----
+  // [serial, lengthFt, widthFt, widthIn]
+  var SEED = [
+    [1,7,1,5],[2,7,1,1],[3,7,1,2],[4,6,1,1],[5,6,1,7],[6,7,1,3],[7,7,1,5],[8,8,1,4],
+    [9,6,1,1],[10,7,1,1],[11,6,1,0],[12,7,1,7],[13,7,1,9],[14,7,1,2],[15,7,1,7],[16,8,2,1],
+    [17,7,1,6],[18,7,1,2],[19,6,1,2],[20,7,1,3],[21,7,1,0],[22,6,2,11],[23,7,2,2],[24,7,1,4],
+    [25,7,1,4],[26,6,2,0],[27,6,1,7],[28,8,1,3],[29,6,1,0],[30,7,1,3],[31,8,1,0],[32,7,1,7],
+    [33,6,1,8],[34,6,1,3],[35,6,1,0],[36,6,1,6],[37,6,1,0],[38,6,1,0],[39,8,1,4],[40,7,1,2],
+    [41,6,1,0],[42,6,1,0],[43,7,1,2],[44,6,1,2],[45,6,1,8],[46,6,1,4],[47,7,1,2],[48,8,1,4],
+    [49,7,1,2],[50,6,1,0],[51,7,1,4],[52,6,1,6],[53,8,1,11],[54,7,2,2],[55,7,1,4],[56,8,1,10],
+    [57,8,2,1],[58,7,1,0],[59,7,1,6],[60,8,1,3],[61,7,1,7],[62,7,1,3],[63,6,1,1],[64,6,1,2],
+    [65,7,1,7],[66,6,1,4],[67,6,1,0],[68,5,1,0],[69,7,1,4],[70,5,1,0],[71,5,1,0],[72,6,1,3],
+    [73,6,1,4],[74,6,1,2],[75,7,1,2],[76,6,1,1],[77,7,1,4],[78,5,1,0]
+  ];
+
+  var uid = 0;
+  function nextUid() { return "r" + (++uid); }
+
+  var STORAGE_KEY = "silverOakScaler.rows.v1";
+
+  function loadRows() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || !parsed.length) return null;
+      return parsed.map(function (r) {
+        return {
+          id: nextUid(),
+          serial: Number(r.serial) || 0,
+          lengthFt: Number(r.lengthFt) || 0,
+          widthFt: Number(r.widthFt) || 0,
+          widthIn: Number(r.widthIn) || 0,
+          manualSection: r.manualSection === "A" || r.manualSection === "B" ? r.manualSection : null,
+          source: r.source === "manual" ? "manual" : "seed",
+        };
+      });
+    } catch (e) { return null; }
+  }
+
+  var rows = loadRows() || SEED.map(function (r) {
+    return { id: nextUid(), serial: r[0], lengthFt: r[1], widthFt: r[2], widthIn: r[3], manualSection: null, source: "seed" };
+  });
+
+  function persist() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rows.map(function (r) {
+        return {
+          serial: r.serial, lengthFt: r.lengthFt, widthFt: r.widthFt, widthIn: r.widthIn,
+          manualSection: r.manualSection, source: r.source,
+        };
+      })));
+    } catch (e) { /* storage unavailable — table still works for this session */ }
+  }
+
+  var el = {
+    tbody: document.getElementById("tbody"),
+    addRowBtn: document.getElementById("addRowBtn"),
+    statACount: document.getElementById("statACount"),
+    statACft: document.getElementById("statACft"),
+    statBCount: document.getElementById("statBCount"),
+    statBCft: document.getElementById("statBCft"),
+    statTotalCft: document.getElementById("statTotalCft"),
+    statTotalCount: document.getElementById("statTotalCount"),
+    printBtn: document.getElementById("printBtn"),
+    downloadBtn: document.getElementById("downloadBtn"),
+    footNote: document.getElementById("footNote"),
+  };
+
+  function widthInches(r) { return r.widthFt * 12 + r.widthIn; }
+  function cft(r) {
+    var w = widthInches(r);
+    return (r.lengthFt * w * w) / 2304;
+  }
+  function autoSection(r) { return cft(r) >= 2.0 ? "A" : "B"; }
+  function resolvedSection(r) { return r.manualSection || autoSection(r); }
+
+  function fmt(n, d) { return Number(n).toFixed(d == null ? 3 : d); }
+
+  function render() {
+    var sorted = rows.slice().sort(function (a, b) { return a.serial - b.serial || a.id.localeCompare(b.id); });
+
+    el.tbody.innerHTML = "";
+    if (sorted.length === 0) {
+      var tr = document.createElement("tr");
+      tr.className = "empty-row";
+      tr.innerHTML = '<td colspan="8">No rows yet — add one to get started.</td>';
+      el.tbody.appendChild(tr);
+    }
+
+    var totalA = 0, countA = 0, totalB = 0, countB = 0;
+
+    sorted.forEach(function (r) {
+      var sec = resolvedSection(r);
+      var c = cft(r);
+      if (sec === "A") { totalA += c; countA++; } else { totalB += c; countB++; }
+
+      var tr = document.createElement("tr");
+      tr.className = sec === "A" ? "row-a" : "";
+
+      tr.appendChild(numCell(r, "serial", 0, 44));
+      tr.appendChild(numCell(r, "lengthFt", 0, 40));
+
+      var widthTd = document.createElement("td");
+      widthTd.className = "num";
+      var wf = mkInput(r, "widthFt", 0, 32);
+      var wi = mkInput(r, "widthIn", 0, 32);
+      widthTd.appendChild(wf);
+      var sep = document.createElement("span");
+      sep.className = "sep";
+      sep.textContent = "'.";
+      widthTd.appendChild(sep);
+      widthTd.appendChild(wi);
+      var dq = document.createElement("span");
+      dq.className = "sep";
+      dq.textContent = '"';
+      widthTd.appendChild(dq);
+      tr.appendChild(widthTd);
+
+      var widthInTd = document.createElement("td");
+      widthInTd.textContent = widthInches(r) + '"';
+      tr.appendChild(widthInTd);
+
+      var cftTd = document.createElement("td");
+      cftTd.textContent = fmt(c);
+      tr.appendChild(cftTd);
+
+      var secTd = document.createElement("td");
+      var select = document.createElement("select");
+      select.className = "sec-select";
+      [["auto", "Auto (" + autoSection(r) + ")"], ["A", "A"], ["B", "B"]].forEach(function (opt) {
+        var o = document.createElement("option");
+        o.value = opt[0];
+        o.textContent = opt[1];
+        select.appendChild(o);
+      });
+      select.value = r.manualSection || "auto";
+      select.addEventListener("change", function () {
+        r.manualSection = select.value === "auto" ? null : select.value;
+        persist();
+        render();
+      });
+      secTd.appendChild(select);
+      tr.appendChild(secTd);
+
+      var srcTd = document.createElement("td");
+      srcTd.innerHTML = '<span class="src-tag">' + labelForSource(r.source) + "</span>";
+      tr.appendChild(srcTd);
+
+      var delTd = document.createElement("td");
+      var delBtn = document.createElement("button");
+      delBtn.className = "del-btn";
+      delBtn.type = "button";
+      delBtn.title = "Remove row";
+      delBtn.textContent = "×";
+      delBtn.addEventListener("click", function () {
+        rows = rows.filter(function (x) { return x.id !== r.id; });
+        persist();
+        render();
+      });
+      delTd.appendChild(delBtn);
+      tr.appendChild(delTd);
+
+      el.tbody.appendChild(tr);
+    });
+
+    updateStats();
+  }
+
+  function labelForSource(s) {
+    return s === "seed" ? "notebook pgs 1–4" : "manual";
+  }
+
+  function mkInput(r, field, decimals, width) {
+    var input = document.createElement("input");
+    input.type = "number";
+    input.step = decimals ? "0.1" : "1";
+    input.min = "0";
+    input.value = r[field];
+    input.style.width = width + "px";
+    input.addEventListener("input", function () {
+      var v = parseFloat(input.value);
+      r[field] = isNaN(v) ? 0 : v;
+      updateStats();
+    });
+    input.addEventListener("change", function () {
+      persist();
+      render();
+    });
+    return input;
+  }
+
+  function numCell(r, field, decimals, width) {
+    var td = document.createElement("td");
+    td.className = "num";
+    td.appendChild(mkInput(r, field, decimals, width));
+    return td;
+  }
+
+  // cheap live update of stats while typing; full re-render (with resort + select refresh) on change
+  function updateStats() {
+    var totalA = 0, countA = 0, totalB = 0, countB = 0;
+    rows.forEach(function (r) {
+      var c = cft(r);
+      if (resolvedSection(r) === "A") { totalA += c; countA++; } else { totalB += c; countB++; }
+    });
+    el.statACount.textContent = countA;
+    el.statACft.textContent = fmt(totalA) + " cft";
+    el.statBCount.textContent = countB;
+    el.statBCft.textContent = fmt(totalB) + " cft";
+    el.statTotalCft.textContent = fmt(totalA + totalB);
+    el.statTotalCount.textContent = (countA + countB) + " logs scaled";
+  }
+
+  el.addRowBtn.addEventListener("click", function () {
+    var maxSerial = rows.reduce(function (m, r) { return Math.max(m, r.serial); }, 0);
+    rows.push({ id: nextUid(), serial: maxSerial + 1, lengthFt: 6, widthFt: 1, widthIn: 0, manualSection: null, source: "manual" });
+    persist();
+    render();
+  });
+
+  // ---------------- PDF export ----------------
+
+  function buildPdf() {
+    var sorted = rows.slice().sort(function (a, b) { return a.serial - b.serial; });
+    var jsPDFCtor = window.jspdf.jsPDF;
+    var doc = new jsPDFCtor({ unit: "pt", format: "a4" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("Silver Oak Scaler — CFT Report", 40, 44);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(90, 101, 82);
+    doc.text("CFT = Length(ft) x Width(in) x Width(in) / 2304   |   Section A: CFT >= 2.00   |   Section B: CFT < 2.00", 40, 60);
+    doc.setTextColor(0, 0, 0);
+
+    var anyOverride = false;
+    var body = sorted.map(function (r) {
+      var w = widthInches(r);
+      var c = cft(r);
+      var sec = resolvedSection(r);
+      var overridden = !!r.manualSection;
+      if (overridden) anyOverride = true;
+      return [r.serial, r.lengthFt, r.widthFt + "'" + r.widthIn + '"', w, c.toFixed(3), sec + (overridden ? "*" : "")];
+    });
+
+    doc.autoTable({
+      startY: 74,
+      head: [["S.No", "Length (ft)", "Width", "Width (in)", "CFT", "Section"]],
+      body: body,
+      styles: { font: "helvetica", fontSize: 8.5, cellPadding: 3.5 },
+      headStyles: { fillColor: [47, 110, 63], textColor: 255 },
+      didParseCell: function (data) {
+        if (data.section === "body" && data.column.index === 5 && String(data.cell.raw).charAt(0) === "A") {
+          data.cell.styles.fillColor = [246, 233, 209];
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
+      margin: { left: 40, right: 40 },
+    });
+
+    var totalA = 0, countA = 0, totalB = 0, countB = 0;
+    rows.forEach(function (r) {
+      var c = cft(r);
+      if (resolvedSection(r) === "A") { totalA += c; countA++; } else { totalB += c; countB++; }
+    });
+
+    var finalY = doc.lastAutoTable.finalY + 26;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Summary", 40, finalY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10.5);
+    doc.text("Total entries: " + rows.length, 40, finalY + 18);
+    doc.setTextColor(122, 86, 32);
+    doc.text("Section A (CFT >= 2.00): " + countA + " logs, total " + totalA.toFixed(3) + " cft", 40, finalY + 36);
+    doc.setTextColor(47, 110, 63);
+    doc.text("Section B (CFT < 2.00): " + countB + " logs, total " + totalB.toFixed(3) + " cft", 40, finalY + 54);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "bold");
+    doc.text("Grand total: " + (totalA + totalB).toFixed(3) + " cft", 40, finalY + 76);
+    if (anyOverride) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text("* section manually reassigned, overriding the computed CFT threshold", 40, finalY + 94);
+    }
+
+    return doc;
+  }
+
+  el.downloadBtn.addEventListener("click", function () {
+    var doc = buildPdf();
+    doc.save("silver-oak-cft-report.pdf");
+  });
+
+  el.printBtn.addEventListener("click", function () { window.print(); });
+
+  render();
+})();
+</script>
+</body>
+</html>
