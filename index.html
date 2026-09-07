@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 <title>Silver Oak Scaler</title>
 <meta name="description" content="Digitize timber log-book measurements, compute cubic-feet volume, sort logs into A/B sections, and export a PDF report.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -31,49 +32,7 @@
     color-scheme: light;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --paper: #141a13;
-      --paper-2: #1b221a;
-      --card: #1c231b;
-      --ink: #e7ecdf;
-      --ink-dim: #a3af97;
-      --ink-faint: #6c7863;
-      --rule: #333d2f;
-      --rule-strong: #445040;
-      --accent: #74c07f;
-      --accent-ink: #0f1a10;
-      --accent-soft: rgba(116, 192, 127, 0.14);
-      --gold: #e0ac57;
-      --gold-soft: rgba(224, 172, 87, 0.14);
-      --gold-ink: #f3dcaa;
-      --danger: #e2836e;
-      --danger-soft: rgba(226, 131, 110, 0.14);
-      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px -14px rgba(0, 0, 0, 0.6);
-      color-scheme: dark;
-    }
-  }
-
-  :root[data-theme="dark"] {
-    --paper: #141a13;
-    --paper-2: #1b221a;
-    --card: #1c231b;
-    --ink: #e7ecdf;
-    --ink-dim: #a3af97;
-    --ink-faint: #6c7863;
-    --rule: #333d2f;
-    --rule-strong: #445040;
-    --accent: #74c07f;
-    --accent-ink: #0f1a10;
-    --accent-soft: rgba(116, 192, 127, 0.14);
-    --gold: #e0ac57;
-    --gold-soft: rgba(224, 172, 87, 0.14);
-    --gold-ink: #f3dcaa;
-    --danger: #e2836e;
-    --danger-soft: rgba(226, 131, 110, 0.14);
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px -14px rgba(0, 0, 0, 0.6);
-    color-scheme: dark;
-  }
+  /* This app always renders in light theme, regardless of device/OS setting. */
 
   * { box-sizing: border-box; }
 
@@ -388,10 +347,60 @@
   }
   .meta-note { font-size: 12px; color: var(--ink-faint); }
 
+  /* Toasts */
+  .toast-wrap {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    z-index: 50;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+    align-items: center;
+    width: calc(100% - 32px);
+    max-width: 420px;
+    pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: "Public Sans", sans-serif;
+    font-size: 13.5px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    animation: toast-in .18s ease;
+  }
+  .toast span { flex: 1; }
+  .toast .toast-undo {
+    background: none;
+    border: none;
+    color: var(--gold);
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    flex: none;
+    padding: 2px 4px;
+  }
+  .toast .toast-undo:hover { text-decoration: underline; }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .toast { animation: none; }
+  }
+
   @media print {
     body { background: #fff; color: #000; }
     header.top, .table-toolbar .btn, footer.actions .btn-ghost, td.num input { display: revert; }
-    footer.actions button, #addSection, th.check, td.check { display: none !important; }
+    footer.actions button, #addSection, th.check, td.check, .toast-wrap { display: none !important; }
     .panel { box-shadow: none; border: none; }
     tbody tr.row-a { background: #f1e2c0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
@@ -422,7 +431,7 @@
 
   /* Mobile: keep the real table, just let it scroll sideways; bump a few tap targets */
   @media (max-width: 700px) {
-    table { font-size: 12.5px; }
+    table { font-size: 13px; }
     td.num input { width: 46px; }
     .del-btn { font-size: 18px; padding: 4px 7px; }
     input[type="checkbox"] { width: 18px; height: 18px; }
@@ -476,19 +485,19 @@
       <form id="addForm" class="add-form" autocomplete="off">
         <div class="field serial">
           <label for="addSerial">S.No</label>
-          <input type="number" id="addSerial" min="1" step="1">
+          <input type="number" id="addSerial" min="1" step="1" inputmode="numeric">
         </div>
         <div class="field">
           <label for="addLength">Length (ft)</label>
-          <input type="number" id="addLength" min="0" step="any" placeholder="7">
+          <input type="number" id="addLength" min="0" step="any" placeholder="7" inputmode="decimal">
         </div>
         <div class="field">
           <label for="addWidthFt">Width (ft&prime;)</label>
-          <input type="number" id="addWidthFt" min="0" step="any" placeholder="1">
+          <input type="number" id="addWidthFt" min="0" step="any" placeholder="1" inputmode="decimal">
         </div>
         <div class="field">
           <label for="addWidthIn">Width (in&Prime;)</label>
-          <input type="number" id="addWidthIn" min="0" step="any" placeholder="0">
+          <input type="number" id="addWidthIn" min="0" step="any" placeholder="0" inputmode="decimal">
         </div>
         <button type="submit" class="btn btn-accent">Add to ledger</button>
       </form>
@@ -534,6 +543,8 @@
     </div>
   </footer>
 </div>
+
+<div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 
 <script>
 (function () {
@@ -629,6 +640,38 @@
   function resolvedSection(r) { return r.manualSection || autoSection(r); }
 
   function fmt(n, d) { return Number(n).toFixed(d == null ? 3 : d); }
+
+  // ---------------- Toasts ----------------
+
+  var toastWrap = document.getElementById("toastWrap");
+  function showToast(message, opts) {
+    opts = opts || {};
+    var toast = document.createElement("div");
+    toast.className = "toast";
+    var msg = document.createElement("span");
+    msg.textContent = message;
+    toast.appendChild(msg);
+
+    var timer = setTimeout(dismiss, opts.duration || 6000);
+    function dismiss() {
+      clearTimeout(timer);
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }
+
+    if (opts.undo) {
+      var undoBtn = document.createElement("button");
+      undoBtn.type = "button";
+      undoBtn.className = "toast-undo";
+      undoBtn.textContent = "Undo";
+      undoBtn.addEventListener("click", function () {
+        dismiss();
+        opts.undo();
+      });
+      toast.appendChild(undoBtn);
+    }
+
+    toastWrap.appendChild(toast);
+  }
 
   // splits a decimal feet value (e.g. 1.5) into whole feet (1) and the
   // equivalent inches for the fractional part (0.5 * 12 = 6)
@@ -762,6 +805,14 @@
         persist();
         render();
         el.addSerial.value = nextSerial();
+        showToast("Row " + r.serial + " removed.", {
+          undo: function () {
+            rows.push(r);
+            persist();
+            render();
+            el.addSerial.value = nextSerial();
+          },
+        });
       });
       delTd.appendChild(delBtn);
       tr.appendChild(delTd);
@@ -807,6 +858,7 @@
     var input = document.createElement("input");
     input.type = "number";
     input.step = field === "serial" ? "1" : "any";
+    input.inputMode = field === "serial" ? "numeric" : "decimal";
     input.min = "0";
     input.value = r[field];
     input.style.width = width + "px";
@@ -830,6 +882,7 @@
     var input = document.createElement("input");
     input.type = "number";
     input.step = "any";
+    input.inputMode = "decimal";
     input.min = "0";
     input.value = r.widthFt;
     input.style.width = width + "px";
@@ -903,7 +956,11 @@
     var widthIn = parseFloat(el.addWidthIn.value);
 
     if (isNaN(serial)) serial = nextSerial();
-    if (isNaN(lengthFt)) { el.addLength.focus(); return; }
+    if (isNaN(lengthFt)) {
+      el.addLength.focus();
+      showToast("Enter a length to add this row.");
+      return;
+    }
     var widthFt = isNaN(widthFtRaw) ? 0 : feetToWholeAndInches(widthFtRaw).whole;
     if (isNaN(widthIn)) widthIn = 0;
 
@@ -935,11 +992,21 @@
   });
 
   el.deleteSelectedBtn.addEventListener("click", function () {
+    var removed = rows.filter(function (r) { return selectedIds[r.id]; });
+    if (!removed.length) return;
     rows = rows.filter(function (r) { return !selectedIds[r.id]; });
     selectedIds = {};
     persist();
     render();
     el.addSerial.value = nextSerial();
+    showToast(removed.length + (removed.length === 1 ? " row" : " rows") + " removed.", {
+      undo: function () {
+        rows = rows.concat(removed);
+        persist();
+        render();
+        el.addSerial.value = nextSerial();
+      },
+    });
   });
 
   // ---------------- PDF export ----------------
