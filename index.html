@@ -417,18 +417,18 @@
         <div class="tagline">Timber log book &rarr; cubic-feet volume, sectioned A / B</div>
       </div>
     </div>
-    <div class="formula-chip">CFT = L(ft) &times; W(in) &times; W(in) &divide; <b>2304</b> &nbsp;·&nbsp; A &ge; 2.00 &nbsp;·&nbsp; B &lt; 2.00</div>
+    <div class="formula-chip">CFT = L(ft) &times; W(in) &times; W(in) &divide; <b>2304</b> &nbsp;·&nbsp; A: L &gt; 6ft &amp; W &gt; 2ft &nbsp;·&nbsp; B: otherwise</div>
   </header>
 
   <section>
     <div class="summary-grid">
       <div class="stat section-a">
-        <div class="label">Section A &middot; CFT &ge; 2.00</div>
+        <div class="label">Section A &middot; L &gt; 6ft &amp; W &gt; 2ft</div>
         <div class="value" id="statACount">0</div>
         <div class="sub" id="statACft">0.000 cft</div>
       </div>
       <div class="stat section-b">
-        <div class="label">Section B &middot; CFT &lt; 2.00</div>
+        <div class="label">Section B &middot; otherwise</div>
         <div class="value" id="statBCount">0</div>
         <div class="sub" id="statBCft">0.000 cft</div>
       </div>
@@ -471,7 +471,7 @@
       <div class="table-toolbar">
         <div>
           <h2 style="margin-bottom:0">Measurement ledger</h2>
-          <p class="panel-sub" style="margin-bottom:0">Click any number to correct a misread. Section is worked out from CFT automatically — override it per row from the dropdown if a log needs to be piled the other way.</p>
+          <p class="panel-sub" style="margin-bottom:0">Click any number to correct a misread. Section is worked out from length &amp; width automatically (A: length &gt; 6ft and width &gt; 2ft; otherwise B) — override it per row from the dropdown if a log needs to be piled the other way.</p>
         </div>
         <button class="btn btn-ghost" id="deleteSelectedBtn" type="button" disabled>Delete selected</button>
       </div>
@@ -595,7 +595,7 @@
     var w = widthInches(r);
     return (r.lengthFt * w * w) / 2304;
   }
-  function autoSection(r) { return cft(r) >= 2.0 ? "A" : "B"; }
+  function autoSection(r) { return (r.lengthFt > 6 && widthInches(r) > 24) ? "A" : "B"; }
   function resolvedSection(r) { return r.manualSection || autoSection(r); }
 
   function fmt(n, d) { return Number(n).toFixed(d == null ? 3 : d); }
@@ -859,7 +859,7 @@
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(90, 101, 82);
-    doc.text("CFT = Length(ft) x Width(in) x Width(in) / 2304   |   Section A: CFT >= 2.00   |   Section B: CFT < 2.00", 40, 60);
+    doc.text("CFT = Length(ft) x Width(in) x Width(in) / 2304   |   Section A: Length > 6ft AND Width > 2ft   |   Section B: otherwise", 40, 60);
     doc.setTextColor(0, 0, 0);
 
     var anyOverride = false;
@@ -901,9 +901,9 @@
     doc.setFontSize(10.5);
     doc.text("Total entries: " + rows.length, 40, finalY + 18);
     doc.setTextColor(122, 86, 32);
-    doc.text("Section A (CFT >= 2.00): " + countA + " logs, total " + totalA.toFixed(3) + " cft", 40, finalY + 36);
+    doc.text("Section A (L > 6ft & W > 2ft): " + countA + " logs, total " + totalA.toFixed(3) + " cft", 40, finalY + 36);
     doc.setTextColor(47, 110, 63);
-    doc.text("Section B (CFT < 2.00): " + countB + " logs, total " + totalB.toFixed(3) + " cft", 40, finalY + 54);
+    doc.text("Section B (otherwise): " + countB + " logs, total " + totalB.toFixed(3) + " cft", 40, finalY + 54);
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold");
     doc.text("Grand total: " + (totalA + totalB).toFixed(3) + " cft", 40, finalY + 76);
@@ -911,7 +911,7 @@
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8.5);
       doc.setTextColor(120, 120, 120);
-      doc.text("* section manually reassigned, overriding the computed CFT threshold", 40, finalY + 94);
+      doc.text("* section manually reassigned, overriding the length & width rule", 40, finalY + 94);
     }
 
     return doc;
