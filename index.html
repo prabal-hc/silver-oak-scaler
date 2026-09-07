@@ -443,7 +443,7 @@
   <section id="addSection">
     <div class="panel">
       <h2>Add a measurement</h2>
-      <p class="panel-sub">Enter length and width, then press Enter — it drops straight into the ledger below and the fields reset for the next log.</p>
+      <p class="panel-sub">Enter length and width (decimals OK — e.g. width 1.5ft auto-fills the inches field), then press Enter — it drops straight into the ledger below and the fields reset for the next log.</p>
       <form id="addForm" class="add-form" autocomplete="off">
         <div class="field serial">
           <label for="addSerial">S.No</label>
@@ -451,15 +451,15 @@
         </div>
         <div class="field">
           <label for="addLength">Length (ft)</label>
-          <input type="number" id="addLength" min="0" step="1" placeholder="7">
+          <input type="number" id="addLength" min="0" step="any" placeholder="7">
         </div>
         <div class="field">
           <label for="addWidthFt">Width (ft&prime;)</label>
-          <input type="number" id="addWidthFt" min="0" step="1" placeholder="1">
+          <input type="number" id="addWidthFt" min="0" step="any" placeholder="1">
         </div>
         <div class="field">
           <label for="addWidthIn">Width (in&Prime;)</label>
-          <input type="number" id="addWidthIn" min="0" max="11" step="1" placeholder="0">
+          <input type="number" id="addWidthIn" min="0" step="any" placeholder="0">
         </div>
         <button type="submit" class="btn btn-accent">Add to ledger</button>
       </form>
@@ -600,6 +600,14 @@
 
   function fmt(n, d) { return Number(n).toFixed(d == null ? 3 : d); }
 
+  // splits a decimal feet value (e.g. 1.5) into whole feet (1) and the
+  // equivalent inches for the fractional part (0.5 * 12 = 6)
+  function feetToWholeAndInches(v) {
+    var whole = Math.floor(v);
+    var fracInches = Math.round((v - whole) * 12 * 100) / 100;
+    return { whole: whole, fracInches: fracInches };
+  }
+
   function render() {
     var sorted = rows.slice().sort(function (a, b) { return a.serial - b.serial || a.id.localeCompare(b.id); });
 
@@ -645,13 +653,13 @@
       checkTd.appendChild(checkbox);
       tr.appendChild(checkTd);
 
-      tr.appendChild(numCell(r, "serial", 0, 44));
-      tr.appendChild(numCell(r, "lengthFt", 0, 40, refreshRow));
+      tr.appendChild(numCell(r, "serial", 44));
+      tr.appendChild(numCell(r, "lengthFt", 40, refreshRow));
 
       var widthTd = document.createElement("td");
       widthTd.className = "num";
-      var wf = mkInput(r, "widthFt", 0, 32, refreshRow);
-      var wi = mkInput(r, "widthIn", 0, 32, refreshRow);
+      var wi = mkInput(r, "widthIn", 32, refreshRow);
+      var wf = mkWidthFtInput(r, wi, 32, refreshRow);
       widthTd.appendChild(wf);
       var sep = document.createElement("span");
       sep.className = "sep";
@@ -747,10 +755,10 @@
     return s === "seed" ? "notebook pgs 1–4" : "manual";
   }
 
-  function mkInput(r, field, decimals, width, onLive) {
+  function mkInput(r, field, width, onLive) {
     var input = document.createElement("input");
     input.type = "number";
-    input.step = decimals ? "0.1" : "1";
+    input.step = field === "serial" ? "1" : "any";
     input.min = "0";
     input.value = r[field];
     input.style.width = width + "px";
@@ -767,10 +775,41 @@
     return input;
   }
 
-  function numCell(r, field, decimals, width, onLive) {
+  // width-feet input: typing a decimal (e.g. 1.5) live-splits it into whole
+  // feet plus the equivalent inches, and reflects that into the paired
+  // inches input in real time
+  function mkWidthFtInput(r, inchesInput, width, onLive) {
+    var input = document.createElement("input");
+    input.type = "number";
+    input.step = "any";
+    input.min = "0";
+    input.value = r.widthFt;
+    input.style.width = width + "px";
+    input.addEventListener("input", function () {
+      var v = parseFloat(input.value);
+      if (isNaN(v)) { r.widthFt = 0; }
+      else {
+        var split = feetToWholeAndInches(v);
+        r.widthFt = split.whole;
+        if (split.fracInches > 0) {
+          r.widthIn = split.fracInches;
+          inchesInput.value = split.fracInches;
+        }
+      }
+      updateStats();
+      if (onLive) onLive();
+    });
+    input.addEventListener("change", function () {
+      persist();
+      render();
+    });
+    return input;
+  }
+
+  function numCell(r, field, width, onLive) {
     var td = document.createElement("td");
     td.className = "num";
-    td.appendChild(mkInput(r, field, decimals, width, onLive));
+    td.appendChild(mkInput(r, field, width, onLive));
     return td;
   }
 
@@ -799,16 +838,25 @@
     }
   });
 
+  // typing a decimal into Width(ft) live-splits it into whole feet + the
+  // equivalent inches, reflected into Width(in) in real time
+  el.addWidthFt.addEventListener("input", function () {
+    var v = parseFloat(el.addWidthFt.value);
+    if (isNaN(v)) return;
+    var split = feetToWholeAndInches(v);
+    if (split.fracInches > 0) el.addWidthIn.value = split.fracInches;
+  });
+
   el.addForm.addEventListener("submit", function (e) {
     e.preventDefault();
     var serial = parseInt(el.addSerial.value, 10);
     var lengthFt = parseFloat(el.addLength.value);
-    var widthFt = parseFloat(el.addWidthFt.value);
+    var widthFtRaw = parseFloat(el.addWidthFt.value);
     var widthIn = parseFloat(el.addWidthIn.value);
 
     if (isNaN(serial)) serial = nextSerial();
     if (isNaN(lengthFt)) { el.addLength.focus(); return; }
-    if (isNaN(widthFt)) widthFt = 0;
+    var widthFt = isNaN(widthFtRaw) ? 0 : feetToWholeAndInches(widthFtRaw).whole;
     if (isNaN(widthIn)) widthIn = 0;
 
     rows.push({ id: nextUid(), serial: serial, lengthFt: lengthFt, widthFt: widthFt, widthIn: widthIn, manualSection: null, source: "manual" });
