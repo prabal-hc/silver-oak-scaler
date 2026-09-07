@@ -163,13 +163,23 @@
   .add-form input {
     font-family: "IBM Plex Mono", monospace;
     font-size: 14px;
+    font-weight: 600;
     border: 1px solid var(--rule-strong);
     border-radius: 8px;
     padding: 8px 10px;
     background: var(--paper-2);
     color: var(--ink);
+    -webkit-text-fill-color: var(--ink);
+    opacity: 1;
+    -moz-appearance: textfield;
+    appearance: textfield;
     width: 92px;
     text-align: right;
+  }
+  .add-form input::-webkit-outer-spin-button,
+  .add-form input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
   .add-form .field.serial input { width: 66px; }
   .add-form input:hover { border-color: var(--rule-strong); }
@@ -264,12 +274,22 @@
   td.num input {
     width: 52px;
     font: inherit;
+    font-weight: 600;
     background: transparent;
     border: 1px solid transparent;
     border-radius: 5px;
     padding: 4px 5px;
     color: var(--ink);
+    -webkit-text-fill-color: var(--ink);
+    opacity: 1;
+    -moz-appearance: textfield;
+    appearance: textfield;
     text-align: right;
+  }
+  td.num input::-webkit-outer-spin-button,
+  td.num input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
   td.num input:hover { border-color: var(--rule); }
   td.num input:focus {
