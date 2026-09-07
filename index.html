@@ -332,23 +332,41 @@
   .badge-a { background: var(--gold); color: #2b1c04; }
   .badge-b { background: var(--rule); color: var(--ink-dim); }
 
-  .sec-select {
-    font-family: "Public Sans", sans-serif;
-    font-size: 11.5px;
-    font-weight: 600;
-    border-radius: 7px;
+  .sec-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .sec-toggle {
+    display: inline-flex;
     border: 1px solid var(--rule-strong);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .sec-btn {
+    font-family: "Public Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    border: none;
     background: var(--card);
-    color: var(--ink);
-    padding: 4px 6px;
+    color: var(--ink-dim);
+    padding: 7px 13px;
+    min-width: 34px;
     cursor: pointer;
   }
-  .sec-select:focus { outline: none; border-color: var(--accent); }
-  .sec-override-tag {
-    font-size: 10px;
+  .sec-btn + .sec-btn { border-left: 1px solid var(--rule-strong); }
+  .sec-btn:hover:not(.active) { background: var(--paper-2); }
+  .sec-btn.active[data-val="A"] { background: var(--gold); color: #2b1c04; }
+  .sec-btn.active[data-val="B"] { background: var(--accent); color: var(--accent-ink); }
+  .sec-auto-reset {
+    font-family: "Public Sans", sans-serif;
+    font-size: 10.5px;
     color: var(--ink-faint);
-    margin-left: 6px;
+    background: none;
+    border: none;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    padding: 4px 0;
   }
+  .sec-auto-reset:hover { color: var(--ink); }
 
   th.check, td.check { width: 36px; text-align: center; padding-left: 16px; padding-right: 4px; }
   input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; vertical-align: middle; }
@@ -396,7 +414,75 @@
 
   @media (max-width: 640px) {
     h1 { font-size: 26px; }
-    .formula-chip { font-size: 11px; }
+    .formula-chip { font-size: 11px; white-space: normal; }
+    header.top { align-items: flex-start; }
+    .wrap { padding: 24px 14px 64px; }
+    .panel { padding: 18px 16px; }
+  }
+
+  /* Mobile: quick-add form becomes a compact 2-column grid, full-width button */
+  @media (max-width: 700px) {
+    .add-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 12px;
+    }
+    .add-form .field, .add-form .field.serial { width: auto; }
+    .add-form input, .add-form .field.serial input {
+      width: 100%;
+      padding: 11px 12px;
+      font-size: 15px;
+    }
+    .add-form button { grid-column: 1 / -1; justify-content: center; padding: 12px; }
+  }
+
+  /* Mobile: table rows become stacked cards (label : value) instead of a wide, scrolling table */
+  @media (max-width: 700px) {
+    .table-scroll { overflow-x: visible; border: none; }
+    table { min-width: 0; }
+    thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    tbody, tr, td { display: block; width: 100%; }
+    tbody tr {
+      border: 1px solid var(--rule);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      padding: 4px 14px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+    tbody tr.row-a { background: var(--gold-soft); }
+    tbody tr:hover { background: var(--card); }
+    tbody tr.row-a:hover { background: var(--gold-soft); }
+    tbody tr:last-child { margin-bottom: 0; }
+
+    td {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--rule);
+    }
+    tbody tr td:last-child { border-bottom: none; }
+    td::before {
+      content: attr(data-label);
+      font-family: "Public Sans", sans-serif;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--ink-faint);
+      font-weight: 600;
+      flex: none;
+    }
+    td.check { padding-top: 12px; }
+    td.check::before { content: "Select"; }
+    td.num input { width: 84px; font-size: 15px; padding: 6px 7px; }
+    td.del-cell { justify-content: flex-end; }
+    td.del-cell::before { content: none; }
+    .del-btn { font-size: 20px; padding: 4px 8px; }
+    input[type="checkbox"] { width: 20px; height: 20px; }
+    .empty-row td { display: block; text-align: center; }
+    .empty-row td::before { content: none; }
   }
 </style>
 </head>
@@ -471,7 +557,7 @@
       <div class="table-toolbar">
         <div>
           <h2 style="margin-bottom:0">Measurement ledger</h2>
-          <p class="panel-sub" style="margin-bottom:0">Click any number to correct a misread. Section is worked out from length &amp; width automatically (A: length &gt; 6ft and width &gt; 2ft; otherwise B) — override it per row from the dropdown if a log needs to be piled the other way.</p>
+          <p class="panel-sub" style="margin-bottom:0">Click any number to correct a misread. Section is worked out from length &amp; width automatically (A: length &gt; 6ft and width &gt; 2ft; otherwise B) — tap A or B on a row to override it, or "auto" to reset.</p>
         </div>
         <button class="btn btn-ghost" id="deleteSelectedBtn" type="button" disabled>Delete selected</button>
       </div>
@@ -630,18 +716,23 @@
       tr.classList.toggle("row-a", sec === "A");
       tr.classList.toggle("row-selected", !!selectedIds[r.id]);
 
-      var widthInTd, cftTd, secSelect;
+      var widthInTd, cftTd, btnA, btnB, autoResetBtn;
+      function updateSecButtons() {
+        var resolved = resolvedSection(r);
+        btnA.classList.toggle("active", resolved === "A");
+        btnB.classList.toggle("active", resolved === "B");
+        autoResetBtn.style.display = r.manualSection ? "" : "none";
+      }
       function refreshRow() {
-        var w = widthInches(r);
-        widthInTd.textContent = w + '"';
+        widthInTd.textContent = widthInches(r) + '"';
         cftTd.textContent = fmt(cft(r));
-        var autoOpt = secSelect.querySelector('option[value="auto"]');
-        if (autoOpt) autoOpt.textContent = "Auto (" + autoSection(r) + ")";
+        updateSecButtons();
         tr.classList.toggle("row-a", resolvedSection(r) === "A");
       }
 
       var checkTd = document.createElement("td");
       checkTd.className = "check";
+      checkTd.setAttribute("data-label", "Select");
       var checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.checked = !!selectedIds[r.id];
@@ -653,11 +744,12 @@
       checkTd.appendChild(checkbox);
       tr.appendChild(checkTd);
 
-      tr.appendChild(numCell(r, "serial", 44));
-      tr.appendChild(numCell(r, "lengthFt", 40, refreshRow));
+      tr.appendChild(numCell(r, "serial", 44, null, "S.No"));
+      tr.appendChild(numCell(r, "lengthFt", 40, refreshRow, "Length (ft)"));
 
       var widthTd = document.createElement("td");
       widthTd.className = "num";
+      widthTd.setAttribute("data-label", "Width (ft′.in″)");
       var wi = mkInput(r, "widthIn", 32, refreshRow);
       var wf = mkWidthFtInput(r, wi, 32, refreshRow);
       widthTd.appendChild(wf);
@@ -673,36 +765,64 @@
       tr.appendChild(widthTd);
 
       widthInTd = document.createElement("td");
+      widthInTd.setAttribute("data-label", "Width (in)");
       widthInTd.textContent = widthInches(r) + '"';
       tr.appendChild(widthInTd);
 
       cftTd = document.createElement("td");
+      cftTd.setAttribute("data-label", "CFT");
       cftTd.textContent = fmt(c);
       tr.appendChild(cftTd);
 
       var secTd = document.createElement("td");
-      secSelect = document.createElement("select");
-      secSelect.className = "sec-select";
-      [["auto", "Auto (" + autoSection(r) + ")"], ["A", "A"], ["B", "B"]].forEach(function (opt) {
-        var o = document.createElement("option");
-        o.value = opt[0];
-        o.textContent = opt[1];
-        secSelect.appendChild(o);
-      });
-      secSelect.value = r.manualSection || "auto";
-      secSelect.addEventListener("change", function () {
-        r.manualSection = secSelect.value === "auto" ? null : secSelect.value;
+      secTd.setAttribute("data-label", "Section");
+      var secCell = document.createElement("div");
+      secCell.className = "sec-cell";
+      var toggle = document.createElement("div");
+      toggle.className = "sec-toggle";
+      btnA = document.createElement("button");
+      btnA.type = "button";
+      btnA.className = "sec-btn";
+      btnA.setAttribute("data-val", "A");
+      btnA.textContent = "A";
+      btnB = document.createElement("button");
+      btnB.type = "button";
+      btnB.className = "sec-btn";
+      btnB.setAttribute("data-val", "B");
+      btnB.textContent = "B";
+      function setSection(val) {
+        r.manualSection = val;
+        persist();
+        render();
+      }
+      btnA.addEventListener("click", function () { setSection("A"); });
+      btnB.addEventListener("click", function () { setSection("B"); });
+      toggle.appendChild(btnA);
+      toggle.appendChild(btnB);
+      secCell.appendChild(toggle);
+
+      autoResetBtn = document.createElement("button");
+      autoResetBtn.type = "button";
+      autoResetBtn.className = "sec-auto-reset";
+      autoResetBtn.textContent = "auto";
+      autoResetBtn.title = "Reset to automatic (length & width rule)";
+      autoResetBtn.addEventListener("click", function () {
+        r.manualSection = null;
         persist();
         render();
       });
-      secTd.appendChild(secSelect);
+      secCell.appendChild(autoResetBtn);
+      updateSecButtons();
+      secTd.appendChild(secCell);
       tr.appendChild(secTd);
 
       var srcTd = document.createElement("td");
+      srcTd.setAttribute("data-label", "Source");
       srcTd.innerHTML = '<span class="src-tag">' + labelForSource(r.source) + "</span>";
       tr.appendChild(srcTd);
 
       var delTd = document.createElement("td");
+      delTd.className = "del-cell";
       var delBtn = document.createElement("button");
       delBtn.className = "del-btn";
       delBtn.type = "button";
@@ -806,9 +926,10 @@
     return input;
   }
 
-  function numCell(r, field, width, onLive) {
+  function numCell(r, field, width, onLive, label) {
     var td = document.createElement("td");
     td.className = "num";
+    if (label) td.setAttribute("data-label", label);
     td.appendChild(mkInput(r, field, width, onLive));
     return td;
   }
